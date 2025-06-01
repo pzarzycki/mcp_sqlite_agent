@@ -147,5 +147,50 @@ This ensures all dependencies are isolated and consistent for your project.
 - `openrouter_llm.py`: LLM integration for agent planning.
 - `init_chinook_db.py`: Script to download and verify the Chinook database.
 
+## MCP Server: Exposing Resources and Tools
+
+This project demonstrates how to use the `@mcp.resource` and `@mcp.tool` decorators from the MCP Python SDK to expose database functionality to agents in a standardized way.
+
+- `@mcp.resource` is used to expose static or queryable resources, such as the database schema. In our server, we use:
+
+```python
+@mcp.resource("schema://main")
+def get_schema() -> str:
+    conn = sqlite3.connect("chinook.db")
+    schema = conn.execute("SELECT sql FROM sqlite_master WHERE type='table'").fetchall()
+    return "\n".join(sql[0] for sql in schema if sql[0])
+```
+This makes the schema available to any MCP client or agent as a resource at the URI `schema://main`.
+
+- `@mcp.tool` is used to expose callable tools, such as running SQL queries. In our server, we use:
+
+```python
+@mcp.tool()
+def query_database(sql: str) -> str:
+    conn = sqlite3.connect("chinook.db")
+    try:
+        result = conn.execute(sql).fetchall()
+        return "\n".join(str(row) for row in result)
+    except Exception as e:
+        return f"Error: {str(e)}"
+```
+This allows agents to call the `query_database` tool with any SQL string, and receive results from the database.
+
+By using these decorators, the MCP server can flexibly expose any database, resource, or tool to smart agents, enabling general-purpose, LLM-driven data exploration.
+
+## MCP Resources and Tools: Concepts
+
+In the Model Context Protocol (MCP), a **resource** is a named, addressable piece of information that can be read by agents or clients. Resources are typically static or slowly-changing data, such as a database schema, documentation, or configuration. They are accessed via a URI (e.g., `schema://main`) and are intended to provide context or background knowledge to agents.
+
+A **tool** in MCP is a callable function or operation that performs an action or computation on demand. Tools are used by agents to interact with the environment, such as running a database query, performing a calculation, or triggering an external process. Tools are invoked with specific inputs and return results dynamically.
+
+In summary:
+- **Resources** provide context and background information (read-only, addressable by URI).
+- **Tools** perform actions or computations (callable with inputs, return results).
+
+The MCP server in this project demonstrates both concepts:
+- The database schema is exposed as a resource (`schema://main`).
+- The ability to run SQL queries is exposed as a tool (`query_database`).
+
 ---
 For more details on MCP, see [modelcontextprotocol.io](https://modelcontextprotocol.io/).
