@@ -1,0 +1,5 @@
+.env
+chinook.db
+__pycache__
+.vscode
+.venv
