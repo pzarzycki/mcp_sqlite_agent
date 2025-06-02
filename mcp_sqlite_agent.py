@@ -28,20 +28,55 @@ async def agent_loop(debug=False):
                     break
                 if not user_input:
                     continue
+                # Dynamically build tool list for prompt
+                tool_lines = []
+                for tool in tools:
+                    if isinstance(tool, dict):
+                        name = tool.get('name', str(tool))
+                        desc = tool.get('description', '')
+                    elif isinstance(tool, (tuple, list)):
+                        name = tool[0] if len(tool) > 0 else str(tool)
+                        desc = tool[1] if len(tool) > 1 else ''
+                    else:
+                        name = str(tool)
+                        desc = ''
+                    if desc:
+                        tool_lines.append(f"- {name}: {desc}")
+                    else:
+                        tool_lines.append(f"- {name}")
+                tool_list_str = '\n'.join(tool_lines)
                 # Multi-step LLM planning loop
+                # Gather tool usage examples from MCP if available
+                example_lines = []
+                for tool in tools:
+                    # Only process if tool is a dict and has examples
+                    if isinstance(tool, dict) and tool.get('examples'):
+                        for ex in tool['examples']:
+                            user = ex.get('user') or ex.get('input')
+                            assistant = ex.get('assistant') or ex.get('output')
+                            if user and assistant:
+                                example_lines.append(f"User: {user}\nAssistant: {assistant}")
+                examples_str = '\n'.join(example_lines)
+
+                system_prompt = f"""
+You are an intelligent agent with access to tools. Always respond in JSON format.
+Available tools:
+{tool_list_str}
+The SQLite schema is as follows:
+{schema}
+When you need to use a tool, respond ONLY with a JSON object like this:
+{{"tool": "tool_name", "input": "input string"}}.
+If you have enough information to answer, respond ONLY with a JSON object like this:
+{{"answer": "your answer here"}}.
+Do not include any other text in your response.
+If you do not understand the question or cannot comply, respond with: {{"error": "I cannot comply"}}.
+
+# Examples of tool use:
+{examples_str}
+Always use a tool if the answer requires data from the database. Only answer directly if you are absolutely certain you do not need to use a tool.
+"""
                 messages = [
-                    {"role": "system", "content": (
-                        "You are an intelligent agent with access to tools. Always respond in JSON format.\n"
-                        "Available tools:\n"
-                        "- query_database: Run an SQL query against the database.\n"
-                        "The SQLite schema is as follows:\n" + schema + "\n"
-                        "When you need to use a tool, respond ONLY with a JSON object like this:\n"
-                        '{"tool": "tool_name", "input": "input string"}.\n'
-                        "If you have enough information to answer, respond ONLY with a JSON object like this:\n"
-                        '{"answer": "your answer here"}.\n'
-                        "Do not include any other text in your response.\n"
-                        "If you do not understand the question or cannot comply, respond with: {\"error\": \"I cannot comply\"}."
-                    )},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_input}
                 ]
                 # Add conversation memory: keep only user questions and final answers
