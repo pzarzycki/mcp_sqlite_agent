@@ -39,6 +39,10 @@ This project uses the **Chinook Database**, a sample database designed to repres
 - `Employee`: Store employees
 - `Genre`, `MediaType`, `Playlist`, `PlaylistTrack`: Supporting tables
 
+## Demo
+
+https://github.com/user-attachments/assets/2a9ad76b-157d-4ab7-ba30-2ed4997a7d04
+
 ## Initialization
 
 To set up the database:
